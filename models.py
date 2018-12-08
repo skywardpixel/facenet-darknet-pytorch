@@ -87,6 +87,7 @@ def create_modules(module_defs):
 
         elif module_def["type"] == "avgpool":
             modules.add_module("avgpool_%d" % i, EmptyLayer())
+
         # Register module list and number of output filters
         module_list.append(modules)
         output_filters.append(filters)

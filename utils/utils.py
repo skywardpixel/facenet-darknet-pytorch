@@ -256,3 +256,11 @@ def build_targets(
 def to_categorical(y, num_classes):
     """ 1-hot encodes a tensor """
     return torch.from_numpy(np.eye(num_classes, dtype="uint8")[y])
+
+
+def static_vars(**kwargs):
+    def decorate(func):
+        for k in kwargs:
+            setattr(func, k, kwargs[k])
+        return func
+    return decorate

@@ -6,12 +6,12 @@ def load_embeddings():
     with open("data/name", "r") as f:
         names = f.readlines()
     print(names)
-    all_embeddings = {}
+    embeddings = []
     for name in names:
         with open("model/" + name, "wb") as f:
             embedding = pickle.load(f)
-            all_embeddings[name] = embedding
-    return all_embeddings
+            embeddings.append((name, embedding))
+    return embeddings
 
 
 def save_embeddings(username, data):
@@ -29,5 +29,5 @@ def add_new_user(users):
         f.write(name + '\n')
         f.close()
     users.append(name)
-    os.mkdir("data/" + name, mode=755)
+    os.mkdir("data/" + name, mode=0o755)
     return users
