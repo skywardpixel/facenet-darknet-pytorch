@@ -53,10 +53,11 @@ def create_modules(module_defs):
             if kernel_size == 2 and stride == 1:
                 padding = nn.ZeroPad2d((0, 1, 0, 1))
                 modules.add_module("_debug_padding_%d" % i, padding)
+            padding = int(module_def["padding"])
             maxpool = nn.MaxPool2d(
                 kernel_size=int(module_def["size"]),
                 stride=int(module_def["stride"]),
-                padding=int((kernel_size - 1) // 2),
+                padding=padding,
             )
             modules.add_module("maxpool_%d" % i, maxpool)
 
@@ -268,7 +269,8 @@ class Darknet(nn.Module):
                     x = module(x)
                 output.append(x)
             elif module_def["type"] == "avgpool":
-                x = F.avg_pool2d(x.size[0])
+                x = F.avg_pool2d(x.shape[0])
+            print(x.shape)
             layer_outputs.append(x)
 
         self.losses["recall"] /= 3
