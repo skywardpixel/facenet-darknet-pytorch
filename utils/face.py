@@ -3,48 +3,42 @@ import os
 
 import torch
 
-NUM_EMB_EACH_USER = 3
-KNN_NUM = 10
-DISTANCE_THRESHOLD = 1.0
-MAX_NUM_USER = 100
-
-
-def load_embeddings():
-    with open("data/name", "r") as f:
+def load_embeddings(opt):
+    with open(opt.names_path, "r") as f:
         names = f.readlines()
     print(names)
     embeddings = []
     for name in names:
-        with open("model/{}.pkl".format(name.strip()), "rb") as f:
+        with open(os.path.join(opt.embeddings_path, name + ".pkl"), "rb") as f:
             embedding = pickle.load(f)
             embeddings.append((name, embedding))
     return embeddings
 
 
-def save_embeddings(username, data):
-    if not os.path.exists("model"):
-        os.mkdir("model", 0o755)
-    with open("model/{}.pkl".format(username), "wb+") as f:
+def save_embeddings(username, data, opt):
+    if not os.path.exists(opt.embeddings_path):
+        os.mkdir(opt.embeddings_path, 0o755)
+    with open(os.path.join(opt.embeddings_path, username + ".pkl"), "wb+") as f:
         pickle.dump(data, f)
 
 
-def add_new_user(users):
+def add_new_user(names_path, users):
     name = input("Type new user's name: ").strip()
     while name in users:
         print('User name already exists!')
         return False
 
-    with open("data/name", "a") as f:
+    with open(names_path, "a") as f:
         f.write(name + '\n')
         f.close()
     users.append(name)
-    os.mkdir("data/" + name, mode=0o755)
+    os.mkdir(os.path.join("data", name), mode=0o755)
     return True
 
 
-def run_embeddings_knn(src, users, embeddings):
-    print(len(users))
-    num_comparison = len(users) * NUM_EMB_EACH_USER
+def run_embeddings_knn(src, users, embeddings, opt):
+    MAX_NUM_USER = 100
+    num_comparison = len(users) * opt.num_embeddings
 
     # saving (label, distance)
     all_id_and_dist = []
@@ -53,7 +47,7 @@ def run_embeddings_knn(src, users, embeddings):
 
     for i in range(len(users)):
         usercase = embeddings[i]
-        for j in range(NUM_EMB_EACH_USER):
+        for j in range(opt.num_embeddings):
             # Euclidean distance
             distance = torch.dist(src, usercase[j]).detach()
             all_id_and_dist.append((i, distance))
@@ -63,12 +57,12 @@ def run_embeddings_knn(src, users, embeddings):
     # sort by least distance
     all_id_and_dist.sort(key=(lambda tup: tup[1]))
 
-    if num_comparison > KNN_NUM:
-        num_comparison = KNN_NUM
+    if num_comparison > opt.knn_num:
+        num_comparison = opt.knn_num
 
     for i in range(num_comparison):
         id, dist = all_id_and_dist[i]
-        if dist < DISTANCE_THRESHOLD:
+        if dist < opt.knn_dist_thres:
             candidates.append((id, dist))
 
     if not candidates:

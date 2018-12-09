@@ -1,17 +1,21 @@
+import argparse
+import os
+
 import cv2
 import dlib
 import numpy as np
 import torch
 
 from models import Darknet
-from utils.face import load_embeddings, add_new_user, save_embeddings, NUM_EMB_EACH_USER, run_embeddings_knn
+from utils.face import load_embeddings, add_new_user, save_embeddings, run_embeddings_knn
 from utils.utils import static_vars
 
 
-@static_vars(frame_idx=0, save_pic_idx=0)
-def add_new_pic(frame, face_num, shape,
-                object_pts, cam_matrix, dist_coeffs, users,
-                euler_angle, last_euler_angle, warped_gray):
+@static_vars(frame_idx=0,
+             save_pic_idx=0,
+             euler_angle=np.zeros(3, 1),
+             last_euler_angle=np.zeros(3, 1))
+def add_new_pic(frame, face_num, shape, users, warped_gray, opt):
     SKIP_FRAME_COLLECTION = 10
     ANGLE_DIFF_TH = 5.0
     render_color = 255, 100, 100
@@ -74,84 +78,76 @@ def add_new_pic(frame, face_num, shape,
             ], dtype=np.float64)
 
             # calc pose
-            ret_val, rotation_vec, translation_vec = cv2.solvePnP(object_pts,
+            ret_val, rotation_vec, translation_vec = cv2.solvePnP(add_new_pic.object_pts,
                                                                   image_pts,
-                                                                  cam_matrix,
-                                                                  dist_coeffs)
+                                                                  add_new_pic.cam_matrix,
+                                                                  add_new_pic.dist_coeffs)
 
             rotation_mat, _ = cv2.Rodrigues(rotation_vec)
             pose_mat = cv2.hconcat([rotation_mat, translation_vec])
-            out_intrinsics, out_rotation, out_translation, _, _, _, euler_angle \
+            out_intrinsics, out_rotation, out_translation, _, _, _, add_new_pic.euler_angle \
                 = cv2.decomposeProjectionMatrix(pose_mat)
 
-            x_angle = euler_angle[0] - last_euler_angle[0]
-            y_angle = euler_angle[1] - last_euler_angle[1]
-            z_angle = euler_angle[2] - last_euler_angle[2]
+            x_angle, y_angle, z_angle = add_new_pic.euler_angle - add_new_pic.last_euler_angle
+
             # save user pic in different angle
             if abs(x_angle) > ANGLE_DIFF_TH or abs(y_angle) > ANGLE_DIFF_TH or abs(z_angle) > ANGLE_DIFF_TH:
                 username = users[-1]
                 pic_file = "data/{}/{}.jpg".format(username, add_new_pic.save_pic_idx)
                 cv2.imwrite(pic_file, warped_gray)
-                last_euler_angle = [
-                    euler_angle[0],
-                    euler_angle[1],
-                    euler_angle[2],
-                ]
+                add_new_pic.last_euler_angle = add_new_pic.euler_angle.copy()
                 add_new_pic.save_pic_idx += 1
             add_new_pic.frame_idx = 0
 
-    if add_new_pic.save_pic_idx == NUM_EMB_EACH_USER:
+    if add_new_pic.save_pic_idx == opt.num_embeddings:
         add_new_pic.save_pic_idx = 0
-        return True, euler_angle, last_euler_angle
+        return True
     else:
-        return False, euler_angle, last_euler_angle
+        return False
 
 
-def run_embedding(model, aligned_face):
+def run_embedding(aligned_face, opt):
+    device = "cuda" if opt.use_cuda and torch.cuda.is_available() else "cpu"
+    model = Darknet(opt.config_path, img_size=160)
+    model.load_weights(opt.weights_path)
+    model = model.to(device)
     img = np.array(aligned_face)
-    input_img = np.repeat(img[np.newaxis, :, :], 3, axis=0)
-    input_img = np.expand_dims(input_img, 0)
-    # As pytorch tensor
-    input_img = torch.from_numpy(input_img).float()
-
-    embedding = model(input_img)
+    img = np.repeat(img[np.newaxis, :, :], 3, axis=0)
+    img = np.expand_dims(img, 0)
+    img = torch.from_numpy(img).float().to(device)
+    embedding = model(img)
     embedding = torch.norm(embedding).detach()
     return embedding
 
 
-def produce_features(model, username):
+def produce_features(username, opt):
     to_be_saved_embeddings = []
-    for i in range(NUM_EMB_EACH_USER):
-        pic_file = "data/{}/{}.jpg".format(username, i)
+    for i in range(opt.num_embeddings):
+        pic_file = os.path.join("data", username, "{}.jpg".format(i))
         temp = cv2.imread(pic_file, 0)
-        embedding = run_embedding(model, temp)
+        embedding = run_embedding(temp, opt)
         to_be_saved_embeddings.append(embedding)
-    save_embeddings(username, to_be_saved_embeddings)
+    save_embeddings(username, to_be_saved_embeddings, opt)
     return to_be_saved_embeddings
 
 
-def main():
+def main(opt):
     face_cascade = cv2.CascadeClassifier("weights/haarcascade_frontalface_alt2.xml")
     predictor = dlib.shape_predictor("weights/shape_predictor_68_face_landmarks.dat")
-    embeddings = load_embeddings()
+
+    embeddings = load_embeddings(opt)
     if embeddings:
         users, embeddings = zip(*embeddings)
         users = list(users)
         embeddings = list(embeddings)
     else:
         users, embeddings = [], []
-    model = Darknet("config/facenet.cfg", img_size=160)
-    model.load_weights("weights/facenet.weights")
 
-    warp_scale = 1.0
-    front_face_pts = [
+    front_face_pts = np.array([
         (58.20558929, 28.47149849),
         (99.03411102, 27.64450073),
         (80.03263855, 120.09350586),
-    ]
-    front_face_pts = np.array([(warp_scale * a, warp_scale * b)
-                               for a, b in front_face_pts],
-                              dtype=np.float64)
+    ], np.float64)
 
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
@@ -161,24 +157,22 @@ def main():
     _, frame = cap.read()
 
     c_x = frame.shape[1] / 2.0
-    c_y = frame.shape[1] / 2.0
-    f_x = c_x * 1.732050808
-    # K = [f_x, 0.0, c_x, 0.0, f_x, c_y, 0.0, 0.0, 1.0]
-    # D = [0.0, 0.0, 0.0, 0.0, 0.0]
+    c_y = frame.shape[0] / 2.0
+    f_x = c_x * np.sqrt(3)
 
-    cam_matrix = np.array(
+    add_new_pic.cam_matrix = np.array(
         [[f_x, 0.0, c_x],
          [0.0, f_x, c_y],
          [0.0, 0.0, 1.0]],
         dtype=np.float64
     )
 
-    dist_coeffs = np.array(
+    add_new_pic.dist_coeffs = np.array(
         [0.0, 0.0, 0.0, 0.0, 0.0],
         dtype=np.float64
     )
 
-    object_pts = np.array([
+    add_new_pic.object_pts = np.array([
         (6.825897, 6.760612, 4.402142),  # 33 left brow left corner
         (1.330353, 7.122144, 6.903745),  # 29 left brow right corner
         (-1.330353, 7.122144, 6.903745),  # 34 right brow left corner
@@ -195,15 +189,6 @@ def main():
         (0.000000, -7.415691, 4.070434),  # 6 chin corner
     ], dtype=np.float64)
 
-    # pose_mat = np.zeros((3, 4, 1), dtype=np.float64)
-    euler_angle = np.zeros((3, 1, 1), dtype=np.float64)
-    last_euler_angle = euler_angle.copy()
-    # out_intrinsics = np.zeros((3, 3, 1), dtype=np.float64)
-    # out_rotation = np.zeros((3, 3, 1), dtype=np.float64)
-    # out_translation = np.zeros((3, 1, 1), dtype=np.float64)
-
-    # cvui.init("DarkFace")
-
     # states
     is_registering, is_recognizing, is_putting_text, is_adding_name = False, False, False, False
     put_text_countdown = 0
@@ -211,39 +196,41 @@ def main():
     global_color = 255, 255, 255
 
     while True:
-        ret, frame = cap.read()
+        _, frame = cap.read()
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces = face_cascade.detectMultiScale(gray, 1.2, 3)
-        #                               # cv2.CV_HAAR_SCALE_IMAGE | cv2.CV_HAAR_FIND_BIGGEST_OBJECT,
-        #                               # (160, 160),
-        #                               # (400, 400))
+        faces = face_cascade.detectMultiScale(gray,
+                                              scaleFactor=1.2,
+                                              minNeighbors=3,
+                                              minSize=(160, 160),
+                                              maxSize=(400, 400))
         face_num = len(faces)
         if face_num > 0:
             dkrect = dlib.rectangle(faces[0][0], faces[0][1], faces[0][0] + faces[0][2], faces[0][1] + faces[0][3])
             shape = predictor(gray, dkrect)
-            current_face_pts = [
+            current_face_pts = np.float32([
                 (shape.part(39).x, shape.part(39).y),
                 (shape.part(42).x, shape.part(42).y),
-                (shape.part(57).x, shape.part(57).y)
-            ]
-            np_current_face_pts = np.float32(current_face_pts)
-            np_front_face_pts = np.float32(front_face_pts)
-            to_front_H = cv2.getAffineTransform(np_current_face_pts, np_front_face_pts)
+                (shape.part(57).x, shape.part(57).y),
+            ])
+            to_front_H = cv2.getAffineTransform(current_face_pts, front_face_pts)
             warped_gray = cv2.warpAffine(gray, to_front_H, (160, 160))
+        else:
+            dkrect, shape, warped_gray = None, None, None
 
         if is_recognizing:
             if face_num > 0:
                 bl = faces[0][0], faces[0][1] + faces[0][3]
                 br = faces[0][0] + faces[0][2], faces[0][1] + faces[0][3]
                 frame = cv2.line(frame, pt1=bl, pt2=br, color=(255, 0, 0), thickness=2)
-            embedding = run_embedding(model, warped_gray)
-            user_idx, confidence = run_embeddings_knn(embedding, users, embeddings)
-            name = users[user_idx] if user_idx < len(users) else "unknown"
-            print("recognized " + name)
+            if warped_gray:
+                embedding = run_embedding(warped_gray, opt)
+                user_idx, confidence = run_embeddings_knn(embedding, users, embeddings)
+                name = users[user_idx] if user_idx < len(users) else "unknown"
+                print("recognized " + name)
 
         elif is_registering:
             if is_adding_name:
-                is_add = add_new_user(users)
+                is_add = add_new_user(opt.names_path, users)
                 if not is_add:
                     is_registering = False
                     is_putting_text = True
@@ -252,26 +239,20 @@ def main():
                     continue
                 is_adding_name = False
 
-            added, euler_angle, last_euler_angle \
-                = add_new_pic(frame,
-                              face_num=face_num,
-                              shape=shape,
-                              object_pts=object_pts,
-                              cam_matrix=cam_matrix,
-                              dist_coeffs=dist_coeffs,
-                              users=users,
-                              euler_angle=euler_angle,
-                              last_euler_angle=last_euler_angle,
-                              warped_gray=warped_gray
-                              )
-            if added:
-                new_embeddings = produce_features(model, users[-1])
-                embeddings.append(new_embeddings)
-                is_putting_text = True
-                text_to_put = "Registration complete"
-                global_color = 50, 255, 50
-                is_registering = False
-                cv2.imshow('frame', frame)
+            if shape and warped_gray:
+                if add_new_pic(frame,
+                               face_num=face_num,
+                               shape=shape,
+                               users=users,
+                               warped_gray=warped_gray
+                               ):
+                    new_embeddings = produce_features(users[-1], opt)
+                    embeddings.append(new_embeddings)
+                    is_putting_text = True
+                    text_to_put = "Registration complete"
+                    global_color = 50, 255, 50
+                    is_registering = False
+                    cv2.imshow('frame', frame)
 
         if is_putting_text:
             if put_text_countdown < 30:
@@ -297,4 +278,18 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--embeddings_folder', type=str, default='model', help='path to saved embeddings')
+    parser.add_argument('--config_path', type=str, default='config/facenet.cfg',
+                        help='path to facenet model config file')
+    parser.add_argument('--weights_path', type=str, default='weights/facenet.weights',
+                        help='path to facenet weights file')
+    parser.add_argument('--names_path', type=str, default='data/names', help='path to name labels file')
+    parser.add_argument('--knn_dist_thres', type=float, default=0.7, help='knn distance threshold')
+    parser.add_argument('--knn_num', type=int, default=10, help='k for knn')
+    parser.add_argument('--num_embeddings', type=int, default=3,
+                        help='number of different embeddings to use for each user')
+    parser.add_argument('--use_cuda', type=bool, default=True, help='whether to use cuda if available')
+    opt = parser.parse_args()
+    print(opt)
+    main(opt)
