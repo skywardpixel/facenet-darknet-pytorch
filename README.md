@@ -3,10 +3,25 @@
 **Work in progress. Course project for Computer Vision.**
 
 A [PyTorch](https://pytorch.org/) implementation of the [Facenet](https://arxiv.org/abs/1503.03832) model for face
-recognition. We used a lot of code from [facenet-darknet-inference](https://github.com/lincolnhard/facenet-darknet-inference)
+recognition. A port of [facenet-darknet-inference](https://github.com/lincolnhard/facenet-darknet-inference) to
+PyTorch.
+
+## Instructions
+
+1. Download [weights](https://drive.google.com/open?id=1ATzb5ZEQo424wlSY-cdlT54FUWlIry8V) and extract.
+2. Put `facenet.cfg` in `config/`.
+3. Put `facenet.weights`, `haarcascade_frontalface_alt2.xml` and `shape_predictor_68_face_landmarks.dat` in
+`weights/`.
+4. Install dependencies using `conda` or `pip`.
+5. Run `python main.py`. Type `a` to register new face, `r` to recognize face from camera, or `q` to quit. (The keys
+fail to work occasionally (frequently :weary:), we are looking for a fix (perhaps multithreading).)
+
+## Credits
+
+We used a lot of code from [facenet-darknet-inference](https://github.com/lincolnhard/facenet-darknet-inference)
 and [PyTorch-YOLOv3](https://github.com/eriklindernoren/PyTorch-YOLOv3). 
 
-Below are the README files copied from these two repos. Thank you!
+Below are the README files copied from these two original repos. Thank you!
 
 # PyTorch-YOLOv3
 Minimal implementation of YOLOv3 in PyTorch.
