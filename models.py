@@ -272,7 +272,6 @@ class Darknet(nn.Module):
                 img_size = x.shape[2]
                 x = F.avg_pool2d(x, kernel_size=img_size)
                 output = x
-            print(x.shape)
             layer_outputs.append(x)
 
         self.losses["recall"] /= 3

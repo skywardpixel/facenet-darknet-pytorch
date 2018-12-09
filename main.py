@@ -5,10 +5,8 @@ import numpy as np
 import torch
 
 from models import Darknet
-from utils.face import load_embeddings, add_new_user, save_embeddings
+from utils.face import load_embeddings, add_new_user, save_embeddings, NUM_EMB_EACH_USER, run_embeddings_knn
 from utils.utils import static_vars
-
-NUM_EMB_EACH_USER = 3
 
 
 @static_vars(frame_idx=0, save_pic_idx=0)
@@ -205,7 +203,7 @@ def main():
     # out_rotation = np.zeros((3, 3, 1), dtype=np.float64)
     # out_translation = np.zeros((3, 1, 1), dtype=np.float64)
 
-    cvui.init("DarkFace")
+    # cvui.init("DarkFace")
 
     # states
     is_registering, is_recognizing, is_putting_text, is_adding_name = False, False, False, False
@@ -236,9 +234,14 @@ def main():
 
         if is_recognizing:
             if face_num > 0:
-                bl = (faces[0][0], faces[0][1] + faces[0][3])
-                br = (faces[0][0] + faces[0][2], faces[0][1] + faces[0][3]),
-                cv2.line(frame, pt1=bl, pt2=br, color=(255, 0, 0), thickness=2)
+                bl = faces[0][0], faces[0][1] + faces[0][3]
+                br = faces[0][0] + faces[0][2], faces[0][1] + faces[0][3]
+                frame = cv2.line(frame, pt1=bl, pt2=br, color=(255, 0, 0), thickness=2)
+            embedding = run_embedding(model, warped_gray)
+            user_idx, confidence = run_embeddings_knn(embedding, users, embeddings)
+            name = users[user_idx] if user_idx < len(users) else "unknown"
+            print("recognized " + name)
+
         elif is_registering:
             is_add = False
             if is_adding_name:
@@ -279,22 +282,22 @@ def main():
                 put_text_countdown = 0
                 is_putting_text = False
 
-        # display buttons
-        if cvui.button(frame, 0, 0, 100, 30, "&Add user"):
-            is_recognizing = 0
-            is_registering = 1
-            is_adding_name = 1
-            print("Register mode!")
-
-        if cvui.button(frame, 100, 0, 200, 30, "&Start / stop recognition"):
-            is_recognizing = not is_recognizing
-            print("Recognizing..." if is_recognizing else "Not recognizing.")
-
-        if cvui.button(frame, 300, 0, 75, 30, "&Quit"):
-            print("Exiting")
-            break
-
-        cvui.update()
+        # # display buttons
+        # if cvui.button(frame, 0, 0, 100, 30, "&Add user"):
+        #     is_recognizing = 0
+        #     is_registering = 1
+        #     is_adding_name = 1
+        #     print("Register mode!")
+        #
+        # if cvui.button(frame, 100, 0, 200, 30, "&Start / stop recognition"):
+        #     is_recognizing = not is_recognizing
+        #     print("Recognizing..." if is_recognizing else "Not recognizing.")
+        #
+        # if cvui.button(frame, 300, 0, 75, 30, "&Quit"):
+        #     print("Exiting")
+        #     break
+        #
+        # cvui.update()
         cv2.imshow('frame', frame)
         key = cv2.waitKey(30)
         if key != 0:
