@@ -110,17 +110,13 @@ def add_new_pic(frame, face_num, shape,
 
 def run_embedding(model, aligned_face):
     img = np.array(aligned_face)
-    # h, w = img.shape
-    # Resize and normalize
-    # input_img = skimage.transform.resize(img, (160, 3), mode='reflect')
-    # Channels-first
     input_img = np.repeat(img[np.newaxis, :, :], 3, axis=0)
     input_img = np.expand_dims(input_img, 0)
     # As pytorch tensor
     input_img = torch.from_numpy(input_img).float()
 
     embedding = model(input_img)
-    torch.norm(embedding).detach()
+    embedding = torch.norm(embedding).detach()
     return embedding
 
 
@@ -271,7 +267,7 @@ def main():
                               )
             if added:
                 new_embeddings = produce_features(model, users[-1])
-                embeddings.extend([(users[-1], e) for e in new_embeddings])
+                embeddings.append(new_embeddings)
                 is_putting_text = True
                 text_to_put = "Registration complete"
                 global_color = 50, 255, 50

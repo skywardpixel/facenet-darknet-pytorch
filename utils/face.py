@@ -5,7 +5,7 @@ import torch
 
 NUM_EMB_EACH_USER = 3
 KNN_NUM = 10
-DISTANCE_THRESHOLD = 1.9
+DISTANCE_THRESHOLD = 1.0
 MAX_NUM_USER = 100
 
 
@@ -43,13 +43,12 @@ def add_new_user(users):
 
 
 def run_embeddings_knn(src, users, embeddings):
-    print(len(users), len(embeddings))
+    print(len(users))
     num_comparison = len(users) * NUM_EMB_EACH_USER
 
     # saving (label, distance)
     all_id_and_dist = []
 
-    num_candidates = 0
     candidates = []
 
     for i in range(len(users)):
@@ -72,14 +71,14 @@ def run_embeddings_knn(src, users, embeddings):
         if dist < DISTANCE_THRESHOLD:
             candidates.append((id, dist))
 
-    if num_candidates == 0:
+    if not candidates:
         recog_name_idx = MAX_NUM_USER
         confidence = 2.0
 
     else:
         hitsum = [0] * MAX_NUM_USER
-        for i in range(num_candidates):
-            hitsum[candidates[i][0]] += 1
+        for c in candidates:
+            hitsum[c[0]] += 1
 
         max_hitsum = 0
         max_hitidx = 0
@@ -88,11 +87,10 @@ def run_embeddings_knn(src, users, embeddings):
             if max_hitsum < hitsum[i]:
                 max_hitsum = hitsum[i]
                 max_hitidx = i
-        for i in range(num_candidates):
-            idx = i * 2
-            if candidates[idx + 1] == max_hitidx:
-                if min_dist > candidates[idx]:
-                    min_dist = candidates[idx]
+        for c in candidates:
+            if c[0] == max_hitidx:
+                if min_dist > c[1]:
+                    min_dist = c[1]
 
         recog_name_idx = max_hitidx
         confidence = min_dist
