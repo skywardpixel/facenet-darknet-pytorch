@@ -8,14 +8,16 @@ def load_embeddings():
     print(names)
     embeddings = []
     for name in names:
-        with open("model/" + name, "wb") as f:
+        with open("model/" + name, "rb") as f:
             embedding = pickle.load(f)
             embeddings.append((name, embedding))
     return embeddings
 
 
 def save_embeddings(username, data):
-    with open("model/" + username, "wb") as f:
+    if not os.path.exists("model"):
+        os.mkdir("model", 0o755)
+    with open("model/{}.pkl".format(username), "wb+") as f:
         pickle.dump(data, f)
 
 

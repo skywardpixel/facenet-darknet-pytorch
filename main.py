@@ -208,7 +208,10 @@ def main():
     cvui.init("DarkFace")
 
     # states
-    is_registering, is_recognizing, is_putting_text, is_adding_name = False, True, False, False
+    is_registering, is_recognizing, is_putting_text, is_adding_name = False, False, False, False
+    put_text_countdown = 0
+    text_to_put = ''
+    global_color = 255, 255, 255
 
     while True:
         ret, frame = cap.read()
@@ -233,10 +236,9 @@ def main():
 
         if is_recognizing:
             if face_num > 0:
-                cv2.line(frame,
-                         (faces[0][0], faces[0][1] + faces[0][3]),
-                         (faces[0][0] + faces[0][2], faces[0][1] + faces[0][3]),
-                         (255, 0, 0), 2)
+                bl = (faces[0][0], faces[0][1] + faces[0][3])
+                br = (faces[0][0] + faces[0][2], faces[0][1] + faces[0][3]),
+                cv2.line(frame, pt1=bl, pt2=br, color=(255, 0, 0), thickness=2)
         elif is_registering:
             is_add = False
             if is_adding_name:
@@ -294,8 +296,7 @@ def main():
 
         cvui.update()
         cv2.imshow('frame', frame)
-
-        key = cv2.waitKey(10)
+        key = cv2.waitKey(30)
         if key != 0:
             if key == ord('q'):
                 print("Exiting")

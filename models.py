@@ -246,7 +246,7 @@ class Darknet(nn.Module):
 
     def forward(self, x, targets=None):
         is_training = targets is not None
-        output = []
+        output = None
         self.losses = defaultdict(float)
         layer_outputs = []
         for i, (module_def, module) in enumerate(zip(self.module_defs, self.module_list)):
@@ -269,13 +269,16 @@ class Darknet(nn.Module):
                     x = module(x)
                 output.append(x)
             elif module_def["type"] == "avgpool":
-                x = F.avg_pool2d(x.shape[0])
+                img_size = x.shape[2]
+                x = F.avg_pool2d(x, kernel_size=img_size)
+                output = x
             print(x.shape)
             layer_outputs.append(x)
 
         self.losses["recall"] /= 3
         self.losses["precision"] /= 3
-        return sum(output) if is_training else torch.cat(output, 1)
+        # return sum(output) if is_training else torch.cat(output, 1)
+        return output
 
     def load_weights(self, weights_path):
         """Parses and loads the weights stored in 'weights_path'"""
