@@ -1,4 +1,6 @@
-# facenet-darknet-pytorch
+# Facenet w/ Darknet in Pytorch
+
+**Work in progress. Course project for Computer Vision.**
 
 A [PyTorch](https://pytorch.org/) implementation of the [Facenet](https://arxiv.org/abs/1503.03832) model for face
 recognition. We used a lot of code from [facenet-darknet-inference](https://github.com/lincolnhard/facenet-darknet-inference)
