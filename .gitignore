@@ -1,0 +1,5 @@
+.idea/
+
+weights/*.weights
+weights/*.dat
+weights/*.xml
