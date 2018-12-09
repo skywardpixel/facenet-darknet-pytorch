@@ -3,22 +3,24 @@ import os
 
 import torch
 
+
 def load_embeddings(opt):
     with open(opt.names_path, "r") as f:
         names = f.readlines()
+    names = [n.strip().strip('\n') for n in names]
     print(names)
     embeddings = []
     for name in names:
-        with open(os.path.join(opt.embeddings_path, name + ".pkl"), "rb") as f:
+        with open(os.path.join(opt.embeddings_folder, name + ".pkl"), "rb") as f:
             embedding = pickle.load(f)
             embeddings.append((name, embedding))
     return embeddings
 
 
 def save_embeddings(username, data, opt):
-    if not os.path.exists(opt.embeddings_path):
-        os.mkdir(opt.embeddings_path, 0o755)
-    with open(os.path.join(opt.embeddings_path, username + ".pkl"), "wb+") as f:
+    if not os.path.exists(opt.embeddings_folder):
+        os.mkdir(opt.embeddings_folder, 0o755)
+    with open(os.path.join(opt.embeddings_folder, username + ".pkl"), "wb+") as f:
         pickle.dump(data, f)
 
 

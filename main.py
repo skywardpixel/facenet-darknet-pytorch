@@ -13,8 +13,8 @@ from utils.utils import static_vars
 
 @static_vars(frame_idx=0,
              save_pic_idx=0,
-             euler_angle=np.zeros(3, 1),
-             last_euler_angle=np.zeros(3, 1))
+             euler_angle=np.zeros((3, 1), dtype=np.float64),
+             last_euler_angle=np.zeros((3, 1), dtype=np.float64))
 def add_new_pic(frame, face_num, shape, users, warped_gray, opt):
     SKIP_FRAME_COLLECTION = 10
     ANGLE_DIFF_TH = 5.0
@@ -143,11 +143,11 @@ def main(opt):
     else:
         users, embeddings = [], []
 
-    front_face_pts = np.array([
-        (58.20558929, 28.47149849),
-        (99.03411102, 27.64450073),
-        (80.03263855, 120.09350586),
-    ], np.float64)
+    front_face_pts = np.float32(
+        [(58.20558929, 28.47149849),
+         (99.03411102, 27.64450073),
+         (80.03263855, 120.09350586)]
+    )
 
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
@@ -160,19 +160,17 @@ def main(opt):
     c_y = frame.shape[0] / 2.0
     f_x = c_x * np.sqrt(3)
 
-    add_new_pic.cam_matrix = np.array(
+    add_new_pic.cam_matrix = np.float64(
         [[f_x, 0.0, c_x],
          [0.0, f_x, c_y],
-         [0.0, 0.0, 1.0]],
-        dtype=np.float64
+         [0.0, 0.0, 1.0]]
     )
 
     add_new_pic.dist_coeffs = np.array(
-        [0.0, 0.0, 0.0, 0.0, 0.0],
-        dtype=np.float64
+        [0.0, 0.0, 0.0, 0.0, 0.0]
     )
 
-    add_new_pic.object_pts = np.array([
+    add_new_pic.object_pts = np.float64([
         (6.825897, 6.760612, 4.402142),  # 33 left brow left corner
         (1.330353, 7.122144, 6.903745),  # 29 left brow right corner
         (-1.330353, 7.122144, 6.903745),  # 34 right brow left corner
@@ -187,7 +185,7 @@ def main(opt):
         (-2.774015, -2.080775, 5.048531),  # 39 mouth right corner
         (0.000000, -3.116408, 6.097667),  # 45 mouth central bottom corner
         (0.000000, -7.415691, 4.070434),  # 6 chin corner
-    ], dtype=np.float64)
+    ])
 
     # states
     is_registering, is_recognizing, is_putting_text, is_adding_name = False, False, False, False
@@ -207,11 +205,11 @@ def main(opt):
         if face_num > 0:
             dkrect = dlib.rectangle(faces[0][0], faces[0][1], faces[0][0] + faces[0][2], faces[0][1] + faces[0][3])
             shape = predictor(gray, dkrect)
-            current_face_pts = np.float32([
-                (shape.part(39).x, shape.part(39).y),
-                (shape.part(42).x, shape.part(42).y),
-                (shape.part(57).x, shape.part(57).y),
-            ])
+            current_face_pts = np.float32(
+                [(shape.part(39).x, shape.part(39).y),
+                 (shape.part(42).x, shape.part(42).y),
+                 (shape.part(57).x, shape.part(57).y)]
+            )
             to_front_H = cv2.getAffineTransform(current_face_pts, front_face_pts)
             warped_gray = cv2.warpAffine(gray, to_front_H, (160, 160))
         else:
@@ -222,11 +220,13 @@ def main(opt):
                 bl = faces[0][0], faces[0][1] + faces[0][3]
                 br = faces[0][0] + faces[0][2], faces[0][1] + faces[0][3]
                 frame = cv2.line(frame, pt1=bl, pt2=br, color=(255, 0, 0), thickness=2)
-            if warped_gray:
+            if warped_gray is not None:
                 embedding = run_embedding(warped_gray, opt)
-                user_idx, confidence = run_embeddings_knn(embedding, users, embeddings)
+                user_idx, confidence = run_embeddings_knn(embedding, users, embeddings, opt)
                 name = users[user_idx] if user_idx < len(users) else "unknown"
-                print("recognized " + name)
+                is_putting_text = True
+                text_to_put = "Recognized " + name if name != "unknown" else "Unknown face"
+                global_color = 50, 255, 50
 
         elif is_registering:
             if is_adding_name:
@@ -239,12 +239,13 @@ def main(opt):
                     continue
                 is_adding_name = False
 
-            if shape and warped_gray:
+            if shape is not None and warped_gray is not None:
                 if add_new_pic(frame,
                                face_num=face_num,
                                shape=shape,
                                users=users,
-                               warped_gray=warped_gray
+                               warped_gray=warped_gray,
+                               opt=opt
                                ):
                     new_embeddings = produce_features(users[-1], opt)
                     embeddings.append(new_embeddings)
@@ -252,12 +253,12 @@ def main(opt):
                     text_to_put = "Registration complete"
                     global_color = 50, 255, 50
                     is_registering = False
-                    cv2.imshow('frame', frame)
 
         if is_putting_text:
             if put_text_countdown < 30:
                 if face_num:
                     cv2.putText(frame, text_to_put, (30, 450), 0, 1.0, global_color, 2)
+                put_text_countdown += 1
             else:
                 put_text_countdown = 0
                 is_putting_text = False
@@ -271,10 +272,14 @@ def main(opt):
             is_recognizing = 0
             is_registering = 1
             is_adding_name = 1
-            print("Register mode!")
+            is_putting_text = True
+            text_to_put = "Registration mode"
+            global_color = 50, 255, 50
         elif key == ord('r'):
             is_recognizing = not is_recognizing
-            print("Recognizing..." if is_recognizing else "Not recognizing.")
+            is_putting_text = True
+            text_to_put = "Recognizing..." if is_recognizing else "Not recognizing."
+            global_color = 255, 50, 50
 
 
 if __name__ == '__main__':
