@@ -1,5 +1,4 @@
 import cv2
-import cvui
 import dlib
 import numpy as np
 import torch
@@ -282,22 +281,6 @@ def main():
                 put_text_countdown = 0
                 is_putting_text = False
 
-        # # display buttons
-        # if cvui.button(frame, 0, 0, 100, 30, "&Add user"):
-        #     is_recognizing = 0
-        #     is_registering = 1
-        #     is_adding_name = 1
-        #     print("Register mode!")
-        #
-        # if cvui.button(frame, 100, 0, 200, 30, "&Start / stop recognition"):
-        #     is_recognizing = not is_recognizing
-        #     print("Recognizing..." if is_recognizing else "Not recognizing.")
-        #
-        # if cvui.button(frame, 300, 0, 75, 30, "&Quit"):
-        #     print("Exiting")
-        #     break
-        #
-        # cvui.update()
         cv2.imshow('frame', frame)
         key = cv2.waitKey(100)
         if key == ord('q'):
