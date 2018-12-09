@@ -120,6 +120,7 @@ def run_embedding(model, aligned_face):
     input_img = torch.from_numpy(input_img).float()
 
     embedding = model(input_img)
+    torch.norm(embedding).detach()
     return embedding
 
 
@@ -131,6 +132,7 @@ def produce_features(model, username):
         embedding = run_embedding(model, temp)
         to_be_saved_embeddings.append(embedding)
     save_embeddings(username, to_be_saved_embeddings)
+    return to_be_saved_embeddings
 
 
 def main():
@@ -139,6 +141,8 @@ def main():
     embeddings = load_embeddings()
     if embeddings:
         users, embeddings = zip(*embeddings)
+        users = list(users)
+        embeddings = list(embeddings)
     else:
         users, embeddings = [], []
     model = Darknet("config/facenet.cfg", img_size=160)
@@ -243,7 +247,6 @@ def main():
             print("recognized " + name)
 
         elif is_registering:
-            is_add = False
             if is_adding_name:
                 is_add = add_new_user(users)
                 if not is_add:
@@ -267,7 +270,8 @@ def main():
                               warped_gray=warped_gray
                               )
             if added:
-                produce_features(model, users[-1])
+                new_embeddings = produce_features(model, users[-1])
+                embeddings.extend([(users[-1], e) for e in new_embeddings])
                 is_putting_text = True
                 text_to_put = "Registration complete"
                 global_color = 50, 255, 50
@@ -299,19 +303,18 @@ def main():
         #
         # cvui.update()
         cv2.imshow('frame', frame)
-        key = cv2.waitKey(30)
-        if key != 0:
-            if key == ord('q'):
-                print("Exiting")
-                break
-            elif key == ord('a'):
-                is_recognizing = 0
-                is_registering = 1
-                is_adding_name = 1
-                print("Register mode!")
-            elif key == ord('r'):
-                is_recognizing = not is_recognizing
-                print("Recognizing..." if is_recognizing else "Not recognizing.")
+        key = cv2.waitKey(100)
+        if key == ord('q'):
+            print("Exiting")
+            break
+        elif key == ord('a'):
+            is_recognizing = 0
+            is_registering = 1
+            is_adding_name = 1
+            print("Register mode!")
+        elif key == ord('r'):
+            is_recognizing = not is_recognizing
+            print("Recognizing..." if is_recognizing else "Not recognizing.")
 
 
 if __name__ == '__main__':

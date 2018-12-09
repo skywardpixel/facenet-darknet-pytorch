@@ -5,7 +5,7 @@ import torch
 
 NUM_EMB_EACH_USER = 3
 KNN_NUM = 10
-DISTANCE_THRESHOLD = 0.7
+DISTANCE_THRESHOLD = 1.9
 MAX_NUM_USER = 100
 
 
@@ -32,18 +32,18 @@ def add_new_user(users):
     name = input("Type new user's name: ").strip()
     while name in users:
         print('User name already exists!')
-        name = input("Type new user's name: ")
+        return False
 
     with open("data/name", "a") as f:
         f.write(name + '\n')
         f.close()
     users.append(name)
     os.mkdir("data/" + name, mode=0o755)
-    return users
+    return True
 
 
 def run_embeddings_knn(src, users, embeddings):
-
+    print(len(users), len(embeddings))
     num_comparison = len(users) * NUM_EMB_EACH_USER
 
     # saving (label, distance)
@@ -56,8 +56,10 @@ def run_embeddings_knn(src, users, embeddings):
         usercase = embeddings[i]
         for j in range(NUM_EMB_EACH_USER):
             # Euclidean distance
-            distance = torch.dist(src, usercase[j])
+            distance = torch.dist(src, usercase[j]).detach()
             all_id_and_dist.append((i, distance))
+
+    print(all_id_and_dist)
 
     # sort by least distance
     all_id_and_dist.sort(key=(lambda tup: tup[1]))
