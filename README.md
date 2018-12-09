@@ -12,7 +12,8 @@ PyTorch.
 2. Put `facenet.weights`, `haarcascade_frontalface_alt2.xml` and `shape_predictor_68_face_landmarks.dat` in
 `weights/`.
 3. Install dependencies using `conda` or `pip`.
-4. Run `python main.py`. Type `a` to register new face, `r` to recognize face from camera, or `q` to quit. (The keys
+4. Create an empty file `names` in `data/` for storing known name labels.
+5. Run `python main.py`. Type `a` to register new face, `r` to recognize face from camera, or `q` to quit. (The keys
 fail to work occasionally (frequently :weary:), we are looking for a fix (perhaps multithreading).)
 
 ## Credits
