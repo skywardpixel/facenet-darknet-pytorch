@@ -9,17 +9,20 @@ PyTorch.
 ## Instructions
 
 1. Download [weights](https://drive.google.com/open?id=1ATzb5ZEQo424wlSY-cdlT54FUWlIry8V) and extract.
-2. Put `facenet.cfg` in `config/`.
-3. Put `facenet.weights`, `haarcascade_frontalface_alt2.xml` and `shape_predictor_68_face_landmarks.dat` in
+2. Put `facenet.weights`, `haarcascade_frontalface_alt2.xml` and `shape_predictor_68_face_landmarks.dat` in
 `weights/`.
-4. Install dependencies using `conda` or `pip`.
-5. Run `python main.py`. Type `a` to register new face, `r` to recognize face from camera, or `q` to quit. (The keys
+3. Install dependencies using `conda` or `pip`.
+4. Run `python main.py`. Type `a` to register new face, `r` to recognize face from camera, or `q` to quit. (The keys
 fail to work occasionally (frequently :weary:), we are looking for a fix (perhaps multithreading).)
 
 ## Credits
 
-We used a lot of code from [facenet-darknet-inference](https://github.com/lincolnhard/facenet-darknet-inference)
-and [PyTorch-YOLOv3](https://github.com/eriklindernoren/PyTorch-YOLOv3). 
+We used a lot of code from **[facenet-darknet-inference](https://github.com/lincolnhard/facenet-darknet-inference)**
+and **[PyTorch-YOLOv3](https://github.com/eriklindernoren/PyTorch-YOLOv3)**. To be more specific, we used
+the Facenet config file (`facenet.cfg`) from **facenet-darknet-inference** and used their `test.cpp`
+and `face_io.c` as a reference for implementing our `main.py` and `face.py`. We used most darknet code from
+**PyTorch-YOLOv3**, with slight modifications to fit the config file.
+
 
 Below are the README files copied from these two original repos. Thank you!
 
