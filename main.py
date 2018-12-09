@@ -116,7 +116,7 @@ def run_embedding(aligned_face, opt):
     img = np.expand_dims(img, 0)
     img = torch.from_numpy(img).float().to(device)
     embedding = model(img)
-    embedding = torch.norm(embedding).detach()
+    embedding = torch.norm(embedding).detach().cpu()
     return embedding
 
 
