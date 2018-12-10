@@ -11,7 +11,15 @@ PyTorch.
 1. Download [weights](https://drive.google.com/open?id=1ATzb5ZEQo424wlSY-cdlT54FUWlIry8V) and extract.
 2. Put `facenet.weights`, `haarcascade_frontalface_alt2.xml` and `shape_predictor_68_face_landmarks.dat` in
 `weights/`.
-3. Install dependencies using `conda` or `pip`.
+3. Install dependencies using `conda` or `pip`. If you are using `conda`:
+    ```shell
+    conda create -n facenet python=3.6
+    conda activate facenet
+    conda install pytorch torchvision cuda100 -c pytorch  # I am using CUDA 10.0
+    conda install opencv -c conda-forge
+    conda install dlib -c menpo
+    conda install scikit-image matplotlib
+    ```
 4. Create an empty file `names` in `data/` for storing known name labels.
 5. Run `python main.py`. Type `a` to register new face, `r` to recognize face from camera, or `q` to quit. (The keys
 fail to work occasionally (frequently :weary:), we are looking for a fix (perhaps multithreading).)
